@@ -25,7 +25,7 @@ Runs serverless with OAuth 2.1 authentication and WireGuard VPN tunnel to reach 
 - `internal/telemetry/` — OpenTelemetry setup
 
 ## Printer Configuration
-Configured via `PRINTER_IP` environment variable (default: 192.168.1.118).
+Configured via `PRINTER_IP` environment variable (default: 192.168.1.244).
 Communicates with HP Color LaserJet MFP M283fdw via:
 - IPP on port 631 for print jobs and queue management
 - SNMP on port 161 for ink/toner levels and status

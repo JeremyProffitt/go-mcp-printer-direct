@@ -50,7 +50,7 @@ func Load() (*Config, error) {
 		WGConfigSecretARN: os.Getenv("WG_CONFIG_SECRET_ARN"),
 		OTelEndpoint:      envOrDefault("OTEL_ENDPOINT", "http://192.168.1.202:4318"),
 		OTelServiceName:   envOrDefault("OTEL_SERVICE_NAME", "mcp-printer-direct"),
-		PrinterIP:         envOrDefault("PRINTER_IP", "192.168.1.118"),
+		PrinterIP:         envOrDefault("PRINTER_IP", "192.168.1.244"),
 		PrinterName:       envOrDefault("PRINTER_NAME", "HP Color LaserJet MFP M283fdw"),
 		AccessTokenTTL:    envDuration("ACCESS_TOKEN_TTL", 3600),
 		RefreshTokenTTL:   envDuration("REFRESH_TOKEN_TTL", 604800),

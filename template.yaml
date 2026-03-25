@@ -36,7 +36,7 @@ Parameters:
   PrinterIp:
     Type: String
     Description: IP address of the target printer
-    Default: '192.168.1.118'
+    Default: '192.168.1.244'
   PrinterName:
     Type: String
     Description: Friendly name of the printer

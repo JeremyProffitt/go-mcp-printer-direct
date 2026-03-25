@@ -30,8 +30,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AdminUser != "admin" {
 		t.Errorf("expected default AdminUser 'admin', got %q", cfg.AdminUser)
 	}
-	if cfg.PrinterIP != "192.168.1.118" {
-		t.Errorf("expected default PrinterIP '192.168.1.118', got %q", cfg.PrinterIP)
+	if cfg.PrinterIP != "192.168.1.244" {
+		t.Errorf("expected default PrinterIP '192.168.1.244', got %q", cfg.PrinterIP)
 	}
 	if cfg.DynamoDBTable != "mcp-printer-direct-oauth" {
 		t.Errorf("expected default DynamoDBTable, got %q", cfg.DynamoDBTable)
