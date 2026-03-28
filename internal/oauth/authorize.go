@@ -25,15 +25,15 @@ const loginPageHTML = `<!DOCTYPE html>
     <title>MCP Printer - Login</title>
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
-        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; width: 90%%; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; width: 90%; }
         h1 { margin-top: 0; font-size: 1.5rem; color: #333; }
         label { display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500; }
-        input { width: 100%%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; box-sizing: border-box; margin-bottom: 1rem; }
+        input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; box-sizing: border-box; margin-bottom: 1rem; }
         .password-wrap { position: relative; }
         .password-wrap input { padding-right: 3rem; margin-bottom: 1rem; }
         .toggle-pw { position: absolute; right: 0.5rem; top: 0.6rem; background: none; border: none; color: #888; cursor: pointer; font-size: 1.1rem; padding: 0.2rem; width: auto; line-height: 1; }
         .toggle-pw:hover { color: #333; }
-        button[type="submit"] { width: 100%%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+        button[type="submit"] { width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
         button[type="submit"]:hover { background: #1d4ed8; }
         .error { color: #dc2626; margin-bottom: 1rem; }
         .info { color: #666; font-size: 0.875rem; margin-bottom: 1rem; }
