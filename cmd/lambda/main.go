@@ -170,12 +170,17 @@ func init() {
 	app.Post("/printer/*", oauth.BearerAuthMiddleware(keyPair), mcpRoute)
 
 	// SSE endpoint for streamable HTTP transport
-	app.Get("/mcp", oauth.BearerAuthMiddleware(keyPair), func(c *fiber.Ctx) error {
+	sseHandler := func(c *fiber.Ctx) error {
 		c.Set("Content-Type", "text/event-stream")
 		c.Set("Cache-Control", "no-cache")
 		c.Set("Connection", "keep-alive")
 		return c.SendString("event: endpoint\ndata: /mcp\n\n")
-	})
+	}
+	app.Get("/mcp", oauth.BearerAuthMiddleware(keyPair), sseHandler)
+
+	// Root path MCP handlers (Claude and other clients connect to the server URL root)
+	app.Post("/", oauth.BearerAuthMiddleware(keyPair), mcpRoute)
+	app.Get("/", oauth.BearerAuthMiddleware(keyPair), sseHandler)
 
 	// Download URL for print_url tool (proxied through VPN if enabled)
 	app.Get("/download", oauth.BearerAuthMiddleware(keyPair), func(c *fiber.Ctx) error {
