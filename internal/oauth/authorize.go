@@ -29,8 +29,12 @@ const loginPageHTML = `<!DOCTYPE html>
         h1 { margin-top: 0; font-size: 1.5rem; color: #333; }
         label { display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500; }
         input { width: 100%%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; box-sizing: border-box; margin-bottom: 1rem; }
-        button { width: 100%%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
-        button:hover { background: #1d4ed8; }
+        .password-wrap { position: relative; }
+        .password-wrap input { padding-right: 3rem; margin-bottom: 1rem; }
+        .toggle-pw { position: absolute; right: 0.5rem; top: 0.75rem; background: none; border: none; color: #666; cursor: pointer; font-size: 0.8rem; padding: 0; width: auto; }
+        .toggle-pw:hover { color: #333; }
+        button[type="submit"] { width: 100%%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+        button[type="submit"]:hover { background: #1d4ed8; }
         .error { color: #dc2626; margin-bottom: 1rem; }
         .info { color: #666; font-size: 0.875rem; margin-bottom: 1rem; }
     </style>
@@ -49,7 +53,10 @@ const loginPageHTML = `<!DOCTYPE html>
             <label for="username">Username</label>
             <input type="text" id="username" name="username" required autocomplete="username">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" required autocomplete="current-password">
+            <div class="password-wrap">
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+                <button type="button" class="toggle-pw" onclick="var p=document.getElementById('password');if(p.type==='password'){p.type='text';this.textContent='Hide';}else{p.type='password';this.textContent='Show';}">Show</button>
+            </div>
             <button type="submit">Authorize</button>
         </form>
     </div>
