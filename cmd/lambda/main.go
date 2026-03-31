@@ -24,6 +24,7 @@ import (
 	"go-mcp-printer-direct/internal/mcp"
 	"go-mcp-printer-direct/internal/middleware"
 	"go-mcp-printer-direct/internal/oauth"
+	"go-mcp-printer-direct/internal/printer"
 	"go-mcp-printer-direct/internal/store"
 	"go-mcp-printer-direct/internal/telemetry"
 	"go-mcp-printer-direct/internal/token"
@@ -32,6 +33,8 @@ import (
 
 var fiberLambda *fiberadapter.FiberLambda
 var otelShutdown func(context.Context) error
+var printerIPP *printer.IPPClient
+var printerSNMP *printer.SNMPClient
 
 func init() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
@@ -99,6 +102,10 @@ func init() {
 
 	// Create MCP handler with direct printer access
 	mcpHandler := mcp.NewHandler(cfg.PrinterIP, cfg.PrinterName, dialFunc)
+
+	// Printer clients for scheduled keepalive
+	printerIPP = printer.NewIPPClient(cfg.PrinterIP, dialFunc)
+	printerSNMP = printer.NewSNMPClient(cfg.PrinterIP, dialFunc)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -233,16 +240,35 @@ func handleLambdaEvent(ctx context.Context, event json.RawMessage) (interface{},
 	return fiberLambda.ProxyWithContextV2(ctx, apiGWEvent)
 }
 
-func handleScheduledEvent(ctx context.Context) (interface{}, error) {
-	slog.Info("running scheduled health check")
+func handleScheduledEvent(_ context.Context) (interface{}, error) {
+	slog.Info("running printer keepalive")
 
-	// Simple health check - test printer connectivity
 	result := map[string]interface{}{
-		"status":    "completed",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
-	slog.Info("health check completed")
+	// Query printer info via IPP to keep it awake
+	info, err := printerIPP.GetPrinterInfo()
+	if err != nil {
+		slog.Error("keepalive: IPP query failed", "error", err)
+		result["ipp"] = "error"
+	} else {
+		slog.Info("keepalive: IPP query OK", "state", info.State, "model", info.MakeModel)
+		result["ipp"] = "ok"
+		result["state"] = info.State
+	}
+
+	// Also query supply levels via SNMP
+	supplies, err := printerSNMP.GetSupplyLevels()
+	if err != nil {
+		slog.Error("keepalive: SNMP query failed", "error", err)
+		result["snmp"] = "error"
+	} else {
+		slog.Info("keepalive: SNMP query OK", "supplies", len(supplies.Supplies))
+		result["snmp"] = "ok"
+	}
+
+	result["status"] = "completed"
 	return result, nil
 }
 

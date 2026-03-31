@@ -117,11 +117,11 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /
             Method: ANY
-        HourlyHealthCheck:
+        PrinterKeepalive:
           Type: Schedule
           Properties:
-            Schedule: rate(1 hour)
-            Description: Hourly health check and printer connectivity test
+            Schedule: rate(55 minutes)
+            Description: Keepalive ping to prevent printer from sleeping
             Enabled: true
 
   HttpApi:
