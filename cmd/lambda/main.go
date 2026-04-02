@@ -20,6 +20,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
+	"go-mcp-printer-direct/internal/alexa"
 	appconfig "go-mcp-printer-direct/internal/config"
 	"go-mcp-printer-direct/internal/mcp"
 	"go-mcp-printer-direct/internal/middleware"
@@ -35,6 +36,7 @@ var fiberLambda *fiberadapter.FiberLambda
 var otelShutdown func(context.Context) error
 var printerIPP *printer.IPPClient
 var printerSNMP *printer.SNMPClient
+var alexaHandler *alexa.Handler
 
 func init() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
@@ -106,6 +108,12 @@ func init() {
 	// Printer clients for scheduled keepalive
 	printerIPP = printer.NewIPPClient(cfg.PrinterIP, dialFunc)
 	printerSNMP = printer.NewSNMPClient(cfg.PrinterIP, dialFunc)
+
+	// Create Alexa handler (optional)
+	if cfg.AlexaSkillID != "" {
+		alexaHandler = alexa.NewHandler(cfg.PrinterIP, cfg.PrinterName, cfg.AlexaSkillID, keyPair, dialFunc)
+		slog.Info("Alexa skill handler initialized", "skill_id", cfg.AlexaSkillID)
+	}
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -232,12 +240,50 @@ func handleLambdaEvent(ctx context.Context, event json.RawMessage) (interface{},
 		return handleScheduledEvent(ctx)
 	}
 
+	// Alexa skill request
+	var alexaProbe struct {
+		Version string `json:"version"`
+		Session *struct {
+			SessionID string `json:"sessionId"`
+		} `json:"session"`
+		Request *struct {
+			Type string `json:"type"`
+		} `json:"request"`
+	}
+	if err := json.Unmarshal(event, &alexaProbe); err == nil &&
+		alexaProbe.Version != "" &&
+		alexaProbe.Session != nil &&
+		alexaProbe.Request != nil &&
+		alexaProbe.Request.Type != "" {
+		return handleAlexaEvent(ctx, event)
+	}
+
 	var apiGWEvent events.APIGatewayV2HTTPRequest
 	if err := json.Unmarshal(event, &apiGWEvent); err != nil {
 		slog.Error("failed to parse API Gateway V2 event", "error", err)
 		return nil, fmt.Errorf("failed to parse event: %w", err)
 	}
 	return fiberLambda.ProxyWithContextV2(ctx, apiGWEvent)
+}
+
+func handleAlexaEvent(_ context.Context, event json.RawMessage) (interface{}, error) {
+	if alexaHandler == nil {
+		slog.Warn("received Alexa request but ALEXA_SKILL_ID not configured")
+		return nil, fmt.Errorf("Alexa handler not configured")
+	}
+
+	slog.Info("processing Alexa skill request")
+	respBytes, err := alexaHandler.HandleRequest(event)
+	if err != nil {
+		slog.Error("Alexa handler error", "error", err)
+		return nil, err
+	}
+
+	var resp interface{}
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		return nil, fmt.Errorf("marshal alexa response: %w", err)
+	}
+	return resp, nil
 }
 
 func handleScheduledEvent(_ context.Context) (interface{}, error) {

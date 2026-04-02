@@ -15,6 +15,7 @@ Runs serverless with OAuth 2.1 authentication and WireGuard VPN tunnel to reach 
 ## Key Directories
 - `cmd/lambda/` — Lambda entry point
 - `internal/mcp/` — MCP JSON-RPC protocol handler and tool definitions
+- `internal/alexa/` — Alexa Custom Skill handler (voice interface)
 - `internal/printer/` — IPP client and SNMP queries for direct printer communication
 - `internal/oauth/` — OAuth 2.1 server (authorize, token, registration, metadata)
 - `internal/token/` — Ed25519 JWT signing/validation
@@ -23,6 +24,7 @@ Runs serverless with OAuth 2.1 authentication and WireGuard VPN tunnel to reach 
 - `internal/config/` — Environment-based configuration
 - `internal/middleware/` — HTTP middleware (logging, auth, OTel)
 - `internal/telemetry/` — OpenTelemetry setup
+- `alexa/` — Alexa skill manifest and interaction model
 
 ## Printer Configuration
 Configured via `PRINTER_IP` environment variable (default: 192.168.1.244).
@@ -47,6 +49,14 @@ go test -v ./...
 make deploy
 # or via GitHub Actions on push to main
 ```
+
+## Alexa Skill
+Optional Alexa Custom Skill integration. Configure via `ALEXA_SKILL_ID` env var.
+The Lambda detects Alexa invocations (direct Lambda calls) vs API Gateway requests automatically.
+Invocation name: "my printer" (e.g., "Alexa, ask my printer to check ink levels").
+Supported intents: GetPrinterStatusIntent, GetInkLevelsIntent, PrintTextIntent,
+GetPrintQueueIntent, GetJobStatusIntent, CancelJobIntent, TestConnectivityIntent.
+Account linking uses the existing OAuth 2.1 flow.
 
 ## AWS Region
 Deploy to us-east-2.

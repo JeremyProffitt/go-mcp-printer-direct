@@ -56,6 +56,7 @@ jobs:
           WG_CONFIG_SECRET_ARN: ${{ secrets.WG_CONFIG_SECRET_ARN }}
           CF_BUCKET: ${{ vars.CLOUDFORMATION_S3_BUCKET }}
           PRINTER_IP: ${{ vars.PRINTER_IP }}
+          ALEXA_SKILL_ID: ${{ vars.ALEXA_SKILL_ID }}
         run: |
           python3 << 'PYEOF'
           import os
@@ -73,6 +74,8 @@ jobs:
             params['JwtSigningKeyArn'] = os.environ['JWT_SIGNING_KEY_ARN']
           if os.environ.get('WG_CONFIG_SECRET_ARN'):
             params['WgConfigSecretArn'] = os.environ['WG_CONFIG_SECRET_ARN']
+          if os.environ.get('ALEXA_SKILL_ID'):
+            params['AlexaSkillId'] = os.environ['ALEXA_SKILL_ID']
 
           with open('params.yaml', 'w') as f:
             for k, v in params.items():

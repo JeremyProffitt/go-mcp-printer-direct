@@ -41,6 +41,10 @@ Parameters:
     Type: String
     Description: Friendly name of the printer
     Default: 'HP Color LaserJet MFP M283fdw'
+  AlexaSkillId:
+    Type: String
+    Description: Alexa Custom Skill Application ID (e.g., amzn1.ask.skill.xxx)
+    Default: ''
 
 Globals:
   Function:
@@ -87,6 +91,7 @@ Resources:
           OTEL_SERVICE_NAME: mcp-printer-direct
           PRINTER_IP: !Ref PrinterIp
           PRINTER_NAME: !Ref PrinterName
+          ALEXA_SKILL_ID: !Ref AlexaSkillId
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OAuthTable
@@ -123,6 +128,11 @@ Resources:
             Schedule: rate(55 minutes)
             Description: Keepalive ping to prevent printer from sleeping
             Enabled: true
+        AlexaSkillEvent:
+          Type: AlexaSkill
+          Condition: HasAlexaSkillId
+          Properties:
+            SkillId: !Ref AlexaSkillId
 
   HttpApi:
     Type: AWS::Serverless::HttpApi
@@ -143,6 +153,7 @@ Resources:
 Conditions:
   HasJwtSigningKey: !Not [!Equals [!Ref JwtSigningKeyArn, '']]
   HasWgConfig: !Not [!Equals [!Ref WgConfigSecretArn, '']]
+  HasAlexaSkillId: !Not [!Equals [!Ref AlexaSkillId, '']]
 
 Outputs:
   ApiEndpoint:

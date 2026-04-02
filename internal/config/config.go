@@ -38,6 +38,9 @@ type Config struct {
 	// Cache TTLs
 	CacheMemoryTTL time.Duration
 	CacheDynamoTTL time.Duration
+
+	// Alexa
+	AlexaSkillID string
 }
 
 func Load() (*Config, error) {
@@ -57,6 +60,7 @@ func Load() (*Config, error) {
 		AuthCodeTTL:       envDuration("AUTH_CODE_TTL", 300),
 		CacheMemoryTTL:    envDuration("CACHE_MEMORY_TTL_SEC", 300),
 		CacheDynamoTTL:    envDuration("CACHE_DYNAMO_TTL_SEC", 3600),
+		AlexaSkillID:      os.Getenv("ALEXA_SKILL_ID"),
 	}
 
 	if cfg.AdminPassword == "" {
