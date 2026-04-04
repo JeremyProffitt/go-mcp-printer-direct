@@ -1,16 +1,12 @@
 package vpn
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
 	"strings"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
@@ -31,20 +27,13 @@ type Tunnel struct {
 	Device *device.Device
 }
 
-func LoadConfig(ctx context.Context, smClient *secretsmanager.Client, secretARN string) (*WireGuardConfig, error) {
-	if secretARN == "" {
-		return nil, fmt.Errorf("WG_CONFIG_SECRET_ARN is not set")
-	}
-
-	result, err := smClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
-		SecretId: aws.String(secretARN),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("get WireGuard secret: %w", err)
+func LoadConfig(configJSON string) (*WireGuardConfig, error) {
+	if configJSON == "" {
+		return nil, fmt.Errorf("WG_CONFIG is not set")
 	}
 
 	var cfg WireGuardConfig
-	if err := json.Unmarshal([]byte(*result.SecretString), &cfg); err != nil {
+	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
 		return nil, fmt.Errorf("parse WireGuard config: %w", err)
 	}
 

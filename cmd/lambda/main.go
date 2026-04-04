@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	fiberadapter "github.com/awslabs/aws-lambda-go-api-proxy/fiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -57,7 +56,6 @@ func init() {
 		os.Exit(1)
 	}
 
-	smClient := secretsmanager.NewFromConfig(awsCfg)
 	ddbClient := dynamodb.NewFromConfig(awsCfg)
 
 	otelShutdown, err = telemetry.Init(ctx, cfg.OTelServiceName, cfg.OTelEndpoint)
@@ -65,18 +63,14 @@ func init() {
 		slog.Warn("OTel init failed, continuing without telemetry", "error", err)
 	}
 
-	keyPair, err := token.LoadKeyPair(ctx, smClient, cfg.JWTSigningKeyARN)
-	if err != nil {
-		slog.Error("failed to load JWT signing keys", "error", err)
-		os.Exit(1)
-	}
+	keyPair := token.LoadKeyPair(cfg.JWTSigningKey)
 
 	// Initialize WireGuard tunnel (optional)
 	var tunnel *vpn.Tunnel
 	var dialFunc func(network, addr string) (net.Conn, error)
 
-	if cfg.WGConfigSecretARN != "" {
-		wgCfg, err := vpn.LoadConfig(ctx, smClient, cfg.WGConfigSecretARN)
+	if cfg.WGConfig != "" {
+		wgCfg, err := vpn.LoadConfig(cfg.WGConfig)
 		if err != nil {
 			slog.Error("failed to load WireGuard config", "error", err)
 		} else {
@@ -89,7 +83,7 @@ func init() {
 			}
 		}
 	} else {
-		slog.Warn("WG_CONFIG_SECRET_ARN not set, WireGuard VPN disabled")
+		slog.Warn("WG_CONFIG not set, WireGuard VPN disabled")
 	}
 
 	// Initialize DynamoDB store

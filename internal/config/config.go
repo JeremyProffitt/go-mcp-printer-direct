@@ -18,9 +18,9 @@ type Config struct {
 	// DynamoDB
 	DynamoDBTable string
 
-	// Secrets Manager ARNs
-	JWTSigningKeyARN  string
-	WGConfigSecretARN string
+	// Secrets (from environment variables)
+	JWTSigningKey string
+	WGConfig      string
 
 	// Token TTLs
 	AccessTokenTTL  time.Duration
@@ -49,8 +49,8 @@ func Load() (*Config, error) {
 		AdminUser:         envOrDefault("ADMIN_USER", "admin"),
 		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
 		DynamoDBTable:     envOrDefault("DYNAMODB_TABLE", "mcp-printer-direct-oauth"),
-		JWTSigningKeyARN:  os.Getenv("JWT_SIGNING_KEY_ARN"),
-		WGConfigSecretARN: os.Getenv("WG_CONFIG_SECRET_ARN"),
+		JWTSigningKey: os.Getenv("JWT_SIGNING_KEY"),
+		WGConfig:      os.Getenv("WG_CONFIG"),
 		OTelEndpoint:      envOrDefault("OTEL_ENDPOINT", "http://192.168.1.202:4318"),
 		OTelServiceName:   envOrDefault("OTEL_SERVICE_NAME", "mcp-printer-direct"),
 		PrinterIP:         envOrDefault("PRINTER_IP", "192.168.1.244"),

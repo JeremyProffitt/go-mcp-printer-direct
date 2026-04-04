@@ -1,15 +1,9 @@
 package token
 
 import (
-	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/json"
-	"fmt"
 	"log/slog"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
 type KeyPair struct {
@@ -17,40 +11,23 @@ type KeyPair struct {
 	PublicKey  ed25519.PublicKey
 }
 
-type jwtKeySecret struct {
-	Seed string `json:"seed"`
-}
+func LoadKeyPair(seed string) *KeyPair {
+	var seedBytes []byte
 
-func LoadKeyPair(ctx context.Context, smClient *secretsmanager.Client, secretARN string) (*KeyPair, error) {
-	var seed []byte
-
-	if secretARN == "" {
-		slog.Warn("JWT_SIGNING_KEY_ARN not set, using deterministic development key")
+	if seed == "" {
+		slog.Warn("JWT_SIGNING_KEY not set, using deterministic development key")
 		h := sha256.Sum256([]byte("mcp-printer-direct-dev-key"))
-		seed = h[:]
+		seedBytes = h[:]
 	} else {
-		result, err := smClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
-			SecretId: aws.String(secretARN),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("get JWT signing key secret: %w", err)
-		}
-
-		var secret jwtKeySecret
-		if err := json.Unmarshal([]byte(*result.SecretString), &secret); err != nil {
-			h := sha256.Sum256([]byte(*result.SecretString))
-			seed = h[:]
-		} else {
-			h := sha256.Sum256([]byte(secret.Seed))
-			seed = h[:]
-		}
+		h := sha256.Sum256([]byte(seed))
+		seedBytes = h[:]
 	}
 
-	privateKey := ed25519.NewKeyFromSeed(seed)
+	privateKey := ed25519.NewKeyFromSeed(seedBytes)
 	publicKey := privateKey.Public().(ed25519.PublicKey)
 
 	return &KeyPair{
 		PrivateKey: privateKey,
 		PublicKey:  publicKey,
-	}, nil
+	}
 }

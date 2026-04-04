@@ -21,14 +21,16 @@ Parameters:
   CertificateArn:
     Type: String
     Description: ACM certificate ARN for the custom domain (must be in same region)
-  JwtSigningKeyArn:
+  JwtSigningKey:
     Type: String
-    Description: Secrets Manager ARN for JWT signing key
+    Description: JWT signing key seed
     Default: ''
-  WgConfigSecretArn:
+    NoEcho: true
+  WgConfig:
     Type: String
-    Description: Secrets Manager ARN for WireGuard configuration
+    Description: WireGuard configuration (JSON)
     Default: ''
+    NoEcho: true
   OtelEndpoint:
     Type: String
     Description: OpenTelemetry OTLP HTTP endpoint
@@ -85,8 +87,8 @@ Resources:
           ADMIN_USER: !Ref AdminUser
           ADMIN_PASSWORD: !Ref AdminPassword
           DYNAMODB_TABLE: !Ref OAuthTable
-          JWT_SIGNING_KEY_ARN: !Ref JwtSigningKeyArn
-          WG_CONFIG_SECRET_ARN: !Ref WgConfigSecretArn
+          JWT_SIGNING_KEY: !Ref JwtSigningKey
+          WG_CONFIG: !Ref WgConfig
           OTEL_ENDPOINT: !Ref OtelEndpoint
           OTEL_SERVICE_NAME: mcp-printer-direct
           PRINTER_IP: !Ref PrinterIp
@@ -95,20 +97,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OAuthTable
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource:
-                - !If
-                  - HasJwtSigningKey
-                  - !Ref JwtSigningKeyArn
-                  - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*
-                - !If
-                  - HasWgConfig
-                  - !Ref WgConfigSecretArn
-                  - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*
       Events:
         CatchAll:
           Type: HttpApi
@@ -151,8 +139,6 @@ Resources:
       RetentionInDays: 30
 
 Conditions:
-  HasJwtSigningKey: !Not [!Equals [!Ref JwtSigningKeyArn, '']]
-  HasWgConfig: !Not [!Equals [!Ref WgConfigSecretArn, '']]
   HasAlexaSkillId: !Not [!Equals [!Ref AlexaSkillId, '']]
 
 Outputs:
