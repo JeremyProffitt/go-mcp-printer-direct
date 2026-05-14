@@ -5,14 +5,62 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/yuin/goldmark"
 )
+
+// chrome holds a long-lived Chrome process shared across Lambda invocations.
+// Lambda reuses containers on warm invocations, so this avoids the ~15s cold
+// startup cost on every PDF request.
+var chrome struct {
+	mu       sync.Mutex
+	allocCtx context.Context
+	cancel   context.CancelFunc
+}
+
+func getOrStartChrome() (context.Context, error) {
+	chrome.mu.Lock()
+	defer chrome.mu.Unlock()
+
+	// Reuse if Chrome is still running
+	if chrome.allocCtx != nil {
+		select {
+		case <-chrome.allocCtx.Done():
+			// Chrome exited; fall through to restart
+			slog.Info("chrome exited, restarting")
+		default:
+			return chrome.allocCtx, nil
+		}
+	}
+
+	chromiumPath := os.Getenv("CHROMIUM_PATH")
+	if chromiumPath == "" {
+		chromiumPath = "/opt/chromium"
+	}
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.ExecPath(chromiumPath),
+		chromedp.NoSandbox,
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("single-process", true),
+		chromedp.Flag("no-zygote", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-setuid-sandbox", true),
+	)
+
+	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	chrome.allocCtx = ctx
+	chrome.cancel = cancel
+	slog.Info("chrome started", "path", chromiumPath)
+	return ctx, nil
+}
 
 // ToPrintable converts content to a printer-ready format.
 // Returns converted data, output MIME type, and any error.
@@ -61,34 +109,21 @@ code{background:#f4f4f4;padding:2px 4px;border-radius:2px}
 table{border-collapse:collapse;width:100%%}
 th,td{border:1px solid #ddd;padding:8px;text-align:left}
 th{background:#f2f2f2}
-img{max-width:100%%}
+img{max-width:100%%%%}
 </style></head><body>%s</body></html>`, buf.String())
 	return []byte(html), nil
 }
 
 func htmlToPDF(html []byte) ([]byte, error) {
-	chromiumPath := os.Getenv("CHROMIUM_PATH")
-	if chromiumPath == "" {
-		chromiumPath = "/opt/chromium"
+	allocCtx, err := getOrStartChrome()
+	if err != nil {
+		return nil, fmt.Errorf("start chrome: %w", err)
 	}
-
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.ExecPath(chromiumPath),
-		chromedp.NoSandbox,
-		chromedp.Flag("disable-gpu", true),
-		chromedp.Flag("single-process", true),
-		chromedp.Flag("no-zygote", true),
-		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("disable-setuid-sandbox", true),
-	)
-
-	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	defer cancel()
 
 	ctx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
 
 	// Use a data URL to load HTML without needing a web server
