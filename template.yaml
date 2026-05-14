@@ -47,11 +47,24 @@ Parameters:
     Type: String
     Description: Alexa Custom Skill Application ID (e.g., amzn1.ask.skill.xxx)
     Default: ''
+  ChromiumLayerArn:
+    Type: String
+    Description: >
+      ARN of the Sparticuz chromium arm64 Lambda layer for HTML/Markdown-to-PDF conversion.
+      Download the arm64 zip from https://github.com/Sparticuz/chromium/releases,
+      publish it to your AWS account with: aws lambda publish-layer-version
+      --layer-name chromium-arm64 --zip-file fileb://chromium-v*.zip
+      --compatible-runtimes provided.al2023 --compatible-architectures arm64
+    Default: ''
 
 Globals:
   Function:
     Timeout: 29
     MemorySize: 512
+
+Conditions:
+  HasAlexaSkillId: !Not [!Equals [!Ref AlexaSkillId, '']]
+  HasChromiumLayer: !Not [!Equals [!Ref ChromiumLayerArn, '']]
 
 Resources:
   OAuthTable:
@@ -81,6 +94,9 @@ Resources:
       Runtime: provided.al2023
       Architectures:
         - arm64
+      MemorySize: 1536
+      Layers:
+        - !If [HasChromiumLayer, !Ref ChromiumLayerArn, !Ref AWS::NoValue]
       Environment:
         Variables:
           PUBLIC_URL: !Sub https://${DomainName}
@@ -94,6 +110,7 @@ Resources:
           PRINTER_IP: !Ref PrinterIp
           PRINTER_NAME: !Ref PrinterName
           ALEXA_SKILL_ID: !Ref AlexaSkillId
+          CHROMIUM_PATH: /opt/chromium
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OAuthTable
@@ -141,9 +158,6 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${PrinterFunction}
       RetentionInDays: 30
-
-Conditions:
-  HasAlexaSkillId: !Not [!Equals [!Ref AlexaSkillId, '']]
 
 Outputs:
   ApiEndpoint:

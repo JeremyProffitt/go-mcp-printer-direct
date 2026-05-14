@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"go-mcp-printer-direct/internal/converter"
 	"go-mcp-printer-direct/internal/printer"
 )
 
@@ -165,6 +167,8 @@ func (h *Handler) dispatchTool(name string, args map[string]interface{}) *ToolRe
 		return h.toolGetJobStatus(args)
 	case "cancel_job":
 		return h.toolCancelJob(args)
+	case "print_document":
+		return h.toolPrintDocument(args)
 	case "test_connectivity":
 		return h.toolTestConnectivity()
 	default:
@@ -196,10 +200,27 @@ func (h *Handler) toolPrintText(args map[string]interface{}) *ToolResult {
 		return ErrorResult("'text' argument is required")
 	}
 
+	format, _ := args["format"].(string)
 	jobName, _ := args["job_name"].(string)
 	copies := 1
 	if c, ok := args["copies"].(float64); ok {
 		copies = int(c)
+	}
+
+	if format == "markdown" {
+		data, mimeType, err := converter.ToPrintable([]byte(text), "text/markdown")
+		if err != nil {
+			return ErrorResult(fmt.Sprintf("Markdown conversion failed: %v", err))
+		}
+		if jobName == "" {
+			jobName = "Markdown Document"
+		}
+		result, err := h.ippClient.PrintDocument(data, mimeType, jobName, copies)
+		if err != nil {
+			return ErrorResult(fmt.Sprintf("Print failed: %v", err))
+		}
+		resultData, _ := json.MarshalIndent(result, "", "  ")
+		return TextResult(string(resultData))
 	}
 
 	result, err := h.ippClient.PrintText(text, jobName, copies)
@@ -259,7 +280,62 @@ func (h *Handler) toolPrintURL(args map[string]interface{}) *ToolResult {
 		copies = int(c)
 	}
 
-	result, err := h.ippClient.PrintDocument(data, contentType, jobName, copies)
+	printData, printMIME, convErr := converter.ToPrintable(data, contentType)
+	if convErr != nil {
+		return ErrorResult(fmt.Sprintf("Content conversion failed: %v", convErr))
+	}
+
+	result, err := h.ippClient.PrintDocument(printData, printMIME, jobName, copies)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("Print failed: %v", err))
+	}
+	resultData, _ := json.MarshalIndent(result, "", "  ")
+	return TextResult(string(resultData))
+}
+
+func (h *Handler) toolPrintDocument(args map[string]interface{}) *ToolResult {
+	content, ok := args["content"].(string)
+	if !ok || content == "" {
+		return ErrorResult("'content' argument is required")
+	}
+
+	mimeType, _ := args["mime_type"].(string)
+	if mimeType == "" {
+		mimeType = "text/plain"
+	}
+
+	jobName, _ := args["job_name"].(string)
+	copies := 1
+	if c, ok := args["copies"].(float64); ok {
+		copies = int(c)
+	}
+
+	// Binary types are base64-encoded; text types are raw strings
+	var data []byte
+	var err error
+	switch mimeType {
+	case "application/pdf", "image/png", "image/jpeg":
+		data, err = base64.StdEncoding.DecodeString(content)
+		if err != nil {
+			data, err = base64.RawStdEncoding.DecodeString(content)
+			if err != nil {
+				return ErrorResult(fmt.Sprintf("Failed to decode base64 content: %v", err))
+			}
+		}
+	default:
+		data = []byte(content)
+	}
+
+	printData, printMIME, err := converter.ToPrintable(data, mimeType)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("Content conversion failed: %v", err))
+	}
+
+	if jobName == "" {
+		jobName = fmt.Sprintf("Document (%s)", mimeType)
+	}
+
+	result, err := h.ippClient.PrintDocument(printData, printMIME, jobName, copies)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("Print failed: %v", err))
 	}
@@ -369,13 +445,21 @@ Get printer model, status, capabilities, and supported paper sizes.
 Check ink/toner supply levels via SNMP.
 
 ### print_text
-Print plain text content. Arguments:
-- **text** (required): The text to print
+Print plain text or Markdown content. Arguments:
+- **text** (required): The text content to print
+- **format** (optional): 'plain' (default) or 'markdown' (converted to PDF via headless Chrome)
+- **job_name** (optional): Name for the print job
+- **copies** (optional): Number of copies (default: 1)
+
+### print_document
+Print a document by providing content directly. Arguments:
+- **content** (required): base64-encoded for PDF/images; raw string for HTML/Markdown/text
+- **mime_type** (required): application/pdf, text/html, text/markdown, text/plain, image/png, image/jpeg
 - **job_name** (optional): Name for the print job
 - **copies** (optional): Number of copies (default: 1)
 
 ### print_url
-Download and print content from a URL. Supports PDF, images, and text. Arguments:
+Download and print content from a URL. HTML and Markdown are converted to PDF via headless Chrome. Arguments:
 - **url** (required): URL to download and print (http:// or https://)
 - **job_name** (optional): Name for the print job
 - **copies** (optional): Number of copies (default: 1)
@@ -478,11 +562,12 @@ func (h *Handler) registerTools() {
 		},
 		{
 			Name:        "print_text",
-			Description: "Print plain text content to the printer via IPP",
+			Description: "Print plain text or Markdown content to the printer",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]Property{
 					"text":     {Type: "string", Description: "The text content to print"},
+					"format":   {Type: "string", Description: "Content format: 'plain' (default) or 'markdown' (converted to PDF via headless Chrome)", Enum: []string{"plain", "markdown"}},
 					"job_name": {Type: "string", Description: "Name for the print job (optional)"},
 					"copies":   {Type: "integer", Description: "Number of copies to print", Minimum: intPtr(1), Maximum: intPtr(99), Default: 1},
 				},
@@ -491,8 +576,23 @@ func (h *Handler) registerTools() {
 			Annotations: &ToolAnnotations{DestructiveHint: BoolPtr(true)},
 		},
 		{
+			Name:        "print_document",
+			Description: "Print a document by providing its content directly. PDF and images must be base64-encoded. HTML and Markdown are raw strings and are automatically converted to PDF via headless Chrome.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"content":   {Type: "string", Description: "Document content: base64-encoded for PDF/images, raw string for HTML/Markdown/text"},
+					"mime_type": {Type: "string", Description: "MIME type of the content", Enum: []string{"application/pdf", "text/html", "text/markdown", "text/plain", "image/png", "image/jpeg"}},
+					"job_name":  {Type: "string", Description: "Name for the print job (optional)"},
+					"copies":    {Type: "integer", Description: "Number of copies to print", Minimum: intPtr(1), Maximum: intPtr(99), Default: 1},
+				},
+				Required: []string{"content", "mime_type"},
+			},
+			Annotations: &ToolAnnotations{DestructiveHint: BoolPtr(true)},
+		},
+		{
 			Name:        "print_url",
-			Description: "Download content from a URL and print it. Supports PDF, images, text, and HTML",
+			Description: "Download content from a URL and print it. HTML is automatically converted to PDF via headless Chrome. Supports PDF, images, text, HTML, and Markdown.",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]Property{

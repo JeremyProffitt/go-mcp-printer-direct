@@ -70,8 +70,8 @@ func TestHandleToolsList(t *testing.T) {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 
-	if len(result.Tools) != 8 {
-		t.Errorf("expected 8 tools, got %d", len(result.Tools))
+	if len(result.Tools) != 9 {
+		t.Errorf("expected 9 tools, got %d", len(result.Tools))
 	}
 
 	// Verify expected tool names
@@ -79,6 +79,7 @@ func TestHandleToolsList(t *testing.T) {
 		"get_printer_info":  false,
 		"get_ink_levels":    false,
 		"print_text":        false,
+		"print_document":    false,
 		"print_url":         false,
 		"get_print_queue":   false,
 		"get_job_status":    false,

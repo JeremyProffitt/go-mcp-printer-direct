@@ -57,6 +57,7 @@ jobs:
           CF_BUCKET: ${{ vars.CLOUDFORMATION_S3_BUCKET }}
           PRINTER_IP: ${{ vars.PRINTER_IP }}
           ALEXA_SKILL_ID: ${{ vars.ALEXA_SKILL_ID }}
+          CHROMIUM_LAYER_ARN: ${{ vars.CHROMIUM_LAYER_ARN }}
         run: |
           python3 << 'PYEOF'
           import os
@@ -76,6 +77,8 @@ jobs:
             params['WgConfig'] = os.environ['WG_CONFIG']
           if os.environ.get('ALEXA_SKILL_ID'):
             params['AlexaSkillId'] = os.environ['ALEXA_SKILL_ID']
+          if os.environ.get('CHROMIUM_LAYER_ARN'):
+            params['ChromiumLayerArn'] = os.environ['CHROMIUM_LAYER_ARN']
 
           with open('params.yaml', 'w') as f:
             for k, v in params.items():
